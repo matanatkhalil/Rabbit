@@ -20,6 +20,11 @@ def apply_schema(url: str | None = None) -> None:
     schema = (config.ROOT / "schema.sql").read_text()
     with psycopg.connect(url or config.DATABASE_URL) as conn:
         conn.execute(schema)
+        conn.execute(
+            "UPDATE books SET status = 'failed', error = %s WHERE status = 'ready'"
+            " AND (embed_model IS DISTINCT FROM %s OR embed_dim IS DISTINCT FROM %s)",
+            ("Reindex this book to use Azure embeddings.", config.EMBED_MODEL, config.EMBED_DIM),
+        )
 
 
 def ensure_database(url: str) -> None:

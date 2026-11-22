@@ -1,48 +1,44 @@
-"""The real embedding model (Qwen3-Embedding-0.6B): shapes, normalisation, query prefix, ranking."""
+import json
+
+import httpx
 import numpy as np
 import pytest
 
 import config
 from embedder import get_embedder
 
-pytestmark = pytest.mark.integration
+
+@pytest.mark.parametrize("method", ["embed_documents", "embed_queries"])
+def test_azure_request_and_response_order(monkeypatch, method):
+    settings = config.load(env={"AZURE_EMBEDDING_API_KEY": "test-embedding-key", "AZURE_CHAT_API_KEY": "other-key"})
+    emb = get_embedder(settings)
+    texts = ["first phrase", "second phrase"]
+
+    def respond(request):
+        assert request.method == "POST"
+        assert str(request.url) == "https://agro-llm.services.ai.azure.com/openai/v1/embeddings"
+        assert request.headers["authorization"] == "Bearer test-embedding-key"
+        assert request.headers["content-type"] == "application/json"
+        assert json.loads(request.content) == {"input": texts, "model": "text-embedding-3-large"}
+        return httpx.Response(200, json={"data": [
+            {"index": 1, "embedding": [0.0, 1.0] + [0.0] * 3070},
+            {"index": 0, "embedding": [1.0, 0.0] + [0.0] * 3070},
+        ]})
+
+    with httpx.Client(transport=httpx.MockTransport(respond)) as client:
+        monkeypatch.setattr(httpx, "post", client.post)
+        vectors = getattr(emb, method)(texts)
+    assert vectors.shape == (2, 3072)
+    assert vectors.dtype == np.float32
+    np.testing.assert_array_equal(vectors[:, :2], np.eye(2))
 
 
-@pytest.fixture(scope="module")
-def emb():
-    return get_embedder()
+def test_no_key_and_empty_batches_do_not_call_azure(monkeypatch):
+    def unexpected_call(*args, **kwargs):
+        pytest.fail("Azure should not be called")
 
-
-def test_configured_model_and_dim(emb):
-    assert emb.model_name == config.EMBED_MODEL
-    assert emb.dim == config.EMBED_DIM == 1024
-
-
-def test_documents_are_normalised_float32(emb):
-    v = emb.embed_documents(["Berlin is the capital of Germany.", "Water boils at 100 degrees Celsius."])
-    assert v.shape == (2, 1024)
-    assert v.dtype == np.float32
-    np.testing.assert_allclose(np.linalg.norm(v, axis=1), 1.0, atol=1e-2)
-
-
-def test_queries_get_the_instruction_prefix(emb):
-    text = "What is the capital of Germany?"
-    [q] = emb.embed_queries([text])
-    [d] = emb.embed_documents([text])
-    np.testing.assert_allclose(np.linalg.norm(q), 1.0, atol=1e-2)
-    assert not np.allclose(q, d, atol=1e-3)
-
-
-def test_query_is_closest_to_the_relevant_passage(emb):
-    [q] = emb.embed_queries(["What is the capital of Germany?"])
-    docs = emb.embed_documents([
-        "The recipe needs two eggs and a cup of flour.",
-        "Berlin is the capital and largest city of Germany.",
-        "Photosynthesis turns light into chemical energy.",
-    ])
-    assert int(np.argmax(docs @ q)) == 1
-
-
-def test_empty_input(emb):
-    assert emb.embed_documents([]).shape == (0, 1024)
-    assert emb.embed_queries([]).shape == (0, 1024)
+    monkeypatch.setattr(httpx, "post", unexpected_call)
+    emb = get_embedder(config.load(env={"AZURE_CHAT_API_KEY": "chat-only"}))
+    assert emb.embed_documents([]).shape == (0, 3072)
+    with pytest.raises(RuntimeError, match="AZURE_EMBEDDING_API_KEY"):
+        emb.embed_queries(["question"])

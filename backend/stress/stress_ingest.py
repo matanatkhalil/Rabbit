@@ -26,7 +26,6 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 import db
-from embedder import get_embedder
 from ingest import (
     BookNotFoundError,
     DuplicateBookError,
@@ -153,15 +152,6 @@ class Ctx:
 
 def expected_chunks(pdf: Path) -> int:
     return len(chunk_pages(clean_text(extract_pages(pdf))))
-
-
-def gpu_peak_gb() -> float | None:
-    try:
-        import torch
-
-        return round(torch.cuda.max_memory_allocated() / 1e9, 2) if torch.cuda.is_available() else None
-    except Exception:
-        return None
 
 
 # --- scenarios -----------------------------------------------------------------
@@ -397,10 +387,7 @@ def main() -> int:
     work = OUT / f"run-{time.strftime('%Y%m%d-%H%M%S')}"
     ctx = Ctx(args.db_url, work)
 
-    print(f"stress DB {args.db_url}\nwork dir  {work}")
-    t = time.perf_counter()
-    get_embedder()  # load once up front so the first scenario isn't charged for it
-    print(f"model loaded in {time.perf_counter() - t:.1f}s\n")
+    print(f"stress DB {args.db_url}\nwork dir  {work}\n")
 
     results: list[Scenario] = []
     for name in names + ([] if args.keep else ["cascade"]):
@@ -422,7 +409,6 @@ def main() -> int:
 
     report = {
         "args": vars(args),
-        "gpu_peak_gb": gpu_peak_gb(),
         "scenarios": [asdict(s) | {"ok": s.ok} for s in results],
     }
     OUT.mkdir(parents=True, exist_ok=True)
@@ -433,7 +419,7 @@ def main() -> int:
     for s in results:
         n_fail = sum(not c.ok for c in s.checks)
         print(f"  {'ok  ' if s.ok else 'FAIL'} {s.name:<11} {len(s.checks) - n_fail}/{len(s.checks)} checks  {s.seconds:>7.1f}s")
-    print(f"  GPU peak {report['gpu_peak_gb']} GB\nreport {path}")
+    print(f"report {path}")
     return 0 if all(s.ok for s in results) else 1
 
 

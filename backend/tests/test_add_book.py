@@ -26,7 +26,7 @@ def books_dir(tmp_path):
 
 @pytest.fixture
 def app(db_url, books_dir):
-    return create_app(db_url=db_url, books_dir=books_dir, dist_dir=None, warm_up=False)
+    return create_app(db_url=db_url, books_dir=books_dir, dist_dir=None)
 
 
 @pytest.fixture
@@ -94,8 +94,7 @@ def test_add_book_runs_the_whole_pipeline(app, events, db_url, books_dir, tmp_pa
             [(status, page_count, model, dim)] = q(
                 db_url, "SELECT status, page_count, embed_model, embed_dim FROM books WHERE id = %s", uuid.UUID(book_id)
             )
-            assert (status, page_count, dim) == ("ready", 8, 1024)
-            assert model == "Qwen/Qwen3-Embedding-0.6B"
+            assert (status, page_count, model, dim) == ("ready", 8, "text-embedding-3-large", 3072)
 
             listed = {b["id"]: b for b in client.get("/api/books").json()}
             assert listed[book_id]["status"] == "ready" and listed[book_id]["pageCount"] == 8

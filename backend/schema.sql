@@ -22,9 +22,21 @@ CREATE TABLE IF NOT EXISTS chunks (
   page_end     INT  NOT NULL,
   content      TEXT NOT NULL,
   token_count  INT  NOT NULL,
-  embedding    vector(1024) NOT NULL,
+  embedding    vector NOT NULL,
   UNIQUE (book_id, ordinal)
 );
+
+-- Existing indexes may contain vectors of a different size until they are rebuilt.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM pg_attribute
+    WHERE attrelid = 'chunks'::regclass AND attname = 'embedding' AND atttypmod <> -1
+  ) THEN
+    ALTER TABLE chunks ALTER COLUMN embedding TYPE vector;
+  END IF;
+END;
+$$;
 
 CREATE INDEX IF NOT EXISTS chunks_book_idx ON chunks (book_id);
 

@@ -13,10 +13,8 @@ storage:
   data_dir: backend/data          # relative to this file; PDFs and covers go in <data_dir>/books/
 
 embedder:
-  backend: local                  # in-process sentence-transformers
-  model: Qwen/Qwen3-Embedding-0.6B
-  dim: 1024                       # must match vector(1024) in backend/schema.sql
-  device: auto                    # auto | cuda | cpu
+  url: https://agro-llm.services.ai.azure.com/openai/v1/embeddings
+  timeout_s: 60
   batch_size: 16
 
 ingest:

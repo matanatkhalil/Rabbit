@@ -28,11 +28,14 @@ def search_chunks(
 ) -> list[Excerpt]:
     """The `k` chunks of the book closest to `question`, closest first."""
     k = k or config.CHAT_TOP_K
-    [q] = (embedder or get_embedder()).embed_queries([question])
+    emb = embedder or get_embedder()
+    [q] = emb.embed_queries([question])
     with db.connect(db_url) as conn:
         rows = conn.execute(
             "SELECT page_start, page_end, content, embedding <=> %s AS distance"
-            " FROM chunks WHERE book_id = %s ORDER BY distance LIMIT %s",
-            (q, book_id, k),
+            " FROM chunks JOIN books ON books.id = chunks.book_id"
+            " WHERE book_id = %s AND status = 'ready' AND embed_model = %s AND embed_dim = %s"
+            " ORDER BY distance LIMIT %s",
+            (q, book_id, emb.model_name, emb.dim, k),
         ).fetchall()
     return [Excerpt(*r) for r in rows]

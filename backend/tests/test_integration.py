@@ -1,5 +1,6 @@
 import uuid
 
+import numpy as np
 import pytest
 
 import db
@@ -45,8 +46,7 @@ def test_ingest_sample_pdf(db_url, books_dir, tmp_path):
         [(status, pages, model, dim, err)] = q(
             db_url, "SELECT status, page_count, embed_model, embed_dim, error FROM books WHERE id = %s", book_id
         )
-        assert (status, pages, dim, err) == ("ready", 12, 1024, None)
-        assert model == "Qwen/Qwen3-Embedding-0.6B"
+        assert (status, pages, model, dim, err) == ("ready", 12, "text-embedding-3-large", 3072, None)
 
         [(n, n_ord, lo, hi, dims)] = q(
             db_url,
@@ -55,17 +55,29 @@ def test_ingest_sample_pdf(db_url, books_dir, tmp_path):
             book_id,
         )
         assert n == expected > 0
-        assert (n_ord, lo, hi, dims) == (n, 0, n - 1, 1024)
+        assert (n_ord, lo, hi, dims) == (n, 0, n - 1, 3072)
 
         # unit-norm vectors
         [(norm,)] = q(db_url, "SELECT min(vector_norm(embedding)) FROM chunks WHERE book_id = %s", book_id)
         assert abs(norm - 1) < 1e-2
 
-        # re-index replaces, never duplicates
+        # Legacy vectors remain stored, but the book is marked for reindexing.
+        q_schema = "UPDATE books SET embed_model = 'legacy-model', embed_dim = 1024 WHERE id = %s"
+        with db.connect(db_url) as conn:
+            conn.execute(q_schema, (book_id,))
+            conn.execute("UPDATE chunks SET embedding = %s WHERE book_id = %s", (np.ones(1024, dtype=np.float32), book_id))
+        db.apply_schema(db_url)
+        [(status, error)] = q(db_url, "SELECT status, error FROM books WHERE id = %s", book_id)
+        assert status == "failed" and "Reindex" in error
+        assert q(db_url, "SELECT min(vector_dims(embedding)) FROM chunks WHERE book_id = %s", book_id) == [(1024,)]
+
+        # Reindexing replaces old vectors without duplicating chunks.
         res = reindex_book(book_id, db_url=db_url)
         assert res.chunk_count == expected
         assert res.empty_page_count == 2
-        assert q(db_url, "SELECT count(*) FROM chunks WHERE book_id = %s", book_id)[0][0] == expected
+        assert q(db_url, "SELECT count(*), min(vector_dims(embedding)) FROM chunks WHERE book_id = %s", book_id) == [
+            (expected, 3072)
+        ]
 
         with pytest.raises(DuplicateBookError):
             add_book(pdf, "Again", db_url=db_url, books_dir=books_dir)

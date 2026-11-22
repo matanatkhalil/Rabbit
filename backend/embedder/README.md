@@ -1,13 +1,9 @@
-# embedder
+# Embeddings
 
-Embedding boundary for Orange Reader. Self-contained (imports nothing from the
-rest of the repo) so it can move to its own branch/service.
+`get_embedder()` sends book chunks and search questions to the Azure embeddings
+endpoint configured under `embedder.url` in `config.yaml`. Requests use
+`AZURE_EMBEDDING_API_KEY` as the bearer token and `text-embedding-3-large` as the
+model. Results are 3,072-dimensional float32 vectors in input order.
 
-- `Embedder` protocol: `model_name`, `dim`, `embed_documents(texts)`, `embed_queries(texts)`
-  → L2-normalised float32 `(n, dim)` arrays.
-- `Tokenizer` protocol: `count(text)`, `offsets(text)` — used by chunking.
-- `get_embedder()` / `get_tokenizer()` — lazy singletons, configured by
-  `RABBIT_EMBED_BACKEND` (`local`), `RABBIT_EMBED_MODEL`, `RABBIT_EMBED_DIM`, `RABBIT_EMBED_DEVICE`.
-
-Planned: an HTTP server wrapping `LocalEmbedder`, plus an `HttpEmbedder` client
-registered as backend `http` in `factory.py`. Callers don't change.
+`get_tokenizer()` supplies token counts and character offsets for chunking via
+`tiktoken`'s `cl100k_base` encoding. It does not run an embedding model.

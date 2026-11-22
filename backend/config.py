@@ -1,7 +1,7 @@
 """Runtime configuration: ../config.yaml, overridden per value by RABBIT_* environment
 variables. Secrets (the LLM API key) come from the environment, loaded from ../.env."""
 import os
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -12,6 +12,9 @@ PROJECT_ROOT = ROOT.parent  # Rabbit/Rabbit/, where config.yaml lives
 
 load_dotenv(PROJECT_ROOT / ".env")  # never overrides variables already set
 
+EMBED_MODEL = "text-embedding-3-large"
+EMBED_DIM = 3072
+
 
 @dataclass(frozen=True)
 class Settings:
@@ -19,10 +22,9 @@ class Settings:
     port: int
     database_url: str
     data_dir: Path
-    embed_backend: str
-    embed_model: str
-    embed_dim: int
-    embed_device: str
+    embed_url: str
+    embed_api_key: str | None = field(repr=False)
+    embed_timeout_s: float
     embed_batch_size: int
     chunk_size: int
     chunk_overlap: int
@@ -60,10 +62,11 @@ def load(path: Path | None = None, env: dict | None = None) -> Settings:
             "database.url", "RABBIT_DATABASE_URL", "postgresql://rabbit:rabbit@localhost:5432/orange_rabbit"
         ),
         data_dir=data_dir if data_dir.is_absolute() else PROJECT_ROOT / data_dir,
-        embed_backend=get("embedder.backend", "RABBIT_EMBED_BACKEND", "local"),
-        embed_model=get("embedder.model", "RABBIT_EMBED_MODEL", "Qwen/Qwen3-Embedding-0.6B"),
-        embed_dim=get("embedder.dim", "RABBIT_EMBED_DIM", 1024, int),
-        embed_device=get("embedder.device", "RABBIT_EMBED_DEVICE", "auto"),  # auto | cuda | cpu
+        embed_url=get(
+            "embedder.url", "RABBIT_EMBED_URL", "https://agro-llm.services.ai.azure.com/openai/v1/embeddings"
+        ),
+        embed_api_key=env.get("AZURE_EMBEDDING_API_KEY") or None,
+        embed_timeout_s=get("embedder.timeout_s", "RABBIT_EMBED_TIMEOUT_S", 60, float),
         embed_batch_size=get("embedder.batch_size", "RABBIT_EMBED_BATCH_SIZE", 16, int),
         chunk_size=get("ingest.chunk_size", "RABBIT_CHUNK_SIZE", 500, int),
         chunk_overlap=get("ingest.chunk_overlap", "RABBIT_CHUNK_OVERLAP", 75, int),
@@ -89,20 +92,7 @@ DATABASE_URL = SETTINGS.database_url
 DATA_DIR = SETTINGS.data_dir
 BOOKS_DIR = DATA_DIR / "books"
 
-# The embedder package reads only RABBIT_EMBED_* (it stays independent of this module),
-# so hand it the configured values unless the environment already sets them.
-EMBED_BACKEND = SETTINGS.embed_backend
-EMBED_MODEL = SETTINGS.embed_model
-EMBED_DIM = SETTINGS.embed_dim
-EMBED_DEVICE = SETTINGS.embed_device
 EMBED_BATCH_SIZE = SETTINGS.embed_batch_size
-for _var, _value in {
-    "RABBIT_EMBED_BACKEND": EMBED_BACKEND,
-    "RABBIT_EMBED_MODEL": EMBED_MODEL,
-    "RABBIT_EMBED_DIM": str(EMBED_DIM),
-    "RABBIT_EMBED_DEVICE": EMBED_DEVICE,
-}.items():
-    os.environ.setdefault(_var, _value)
 
 CHUNK_SIZE = SETTINGS.chunk_size
 CHUNK_OVERLAP = SETTINGS.chunk_overlap

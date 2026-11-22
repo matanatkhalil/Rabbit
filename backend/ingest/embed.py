@@ -14,7 +14,7 @@ def embed_chunks(
     on_batch: Callable[[int, int], None] | None = None,
     embedder: Embedder | None = None,
 ) -> np.ndarray:
-    """(len(chunks), dim) normalised vectors. `on_batch(done, total)` after each batch."""
+    """(len(chunks), dim) vectors. `on_batch(done, total)` after each batch."""
     batch_size = batch_size or config.EMBED_BATCH_SIZE
     emb = embedder or get_embedder()
     texts = [c.content for c in chunks]

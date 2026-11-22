@@ -8,7 +8,7 @@ replaceable function in `ingest/`.
 config.py            settings from ../config.yaml, overridden by RABBIT_* env vars; secrets from ../.env
 db.py                connections, schema apply, test/stress DB creation
 schema.sql           books + chunks tables (idempotent)
-embedder/            embedding boundary — standalone, moves to its own branch/service
+embedder/            Azure embedding client and tokenizer for chunking
 ingest/
   extract.py         extract_pages(pdf_path)
   clean.py           clean_text(pages)            -> .needs_ocr flag
@@ -39,7 +39,7 @@ The whole app starts with one command from the project root (`Rabbit/Rabbit/`):
 ./start.sh        # database, schema, deps, UI build, then http://127.0.0.1:8000
 ```
 
-In the project root, settings live in `config.yaml`. To enable chat, copy `.env.example` to `.env` and set `AZURE_CHAT_API_KEY`. Chat uses the `DeepSeek-V4.1-Flash` deployment at the Azure endpoint already set in `.env.example`.
+In the project root, copy `.env.example` to `.env`. Set `AZURE_EMBEDDING_API_KEY` for book indexing and question search, and `AZURE_CHAT_API_KEY` for chat replies. Chat uses `DeepSeek-V4.1-Flash` at the Azure endpoint set in `.env.example`.
 
 ## Questions
 
@@ -62,26 +62,27 @@ Works on the same database and data folder as the app (run from this directory):
 
 ## Embedder boundary
 
-`ingest` only uses `embedder.get_embedder()` (`embed_documents`, `model_name`, `dim`)
-and `embedder.get_tokenizer()` (`count`, `offsets`). Today the backend is `local`
-(sentence-transformers in-process, fp16 on CUDA, GPU calls serialised by a lock).
-To split it out: add an HTTP server around `LocalEmbedder` and an `HttpEmbedder`
-client registered as `RABBIT_EMBED_BACKEND=http`. The tokenizer stays local (no weights).
+Book chunks and search questions are sent to the Azure `/openai/v1/embeddings` endpoint configured
+in `config.yaml`. Both use `text-embedding-3-large` (3,072 dimensions). Chunking uses
+`tiktoken`; no embedding model weights are downloaded or run locally.
+
+On startup, books indexed with an earlier embedding model are marked for reindexing.
+Use **Re-index** in the library or run `python -m ingest reindex <book_id>` from `backend/`
+to replace the old vectors using the existing PDF.
 
 ## Tests
 
 ```bash
-python -m pytest                     # all (integration uses DB orange_rabbit_test + GPU)
+python -m pytest                     # all (integration uses DB orange_rabbit_test)
 python -m pytest -m "not integration"
 ```
 
-Tests never call the real LLM: an autouse fixture in `tests/conftest.py` fails any test
-that reaches `chat.answer._post_completion`; chat tests replace it with a stub.
+Tests use stub chat replies and embeddings instead of calling Azure.
 
 ## Stress tests
 
 ```bash
-python -m stress.stress_ingest                         # all scenarios, ~6 min
+python -m stress.stress_ingest                         # all scenarios; uses the Azure embedding API
 python -m stress.stress_ingest throughput --books 5 --pages 300
 python -m stress.stress_ingest concurrent --workers 8
 python -m stress.make_pdf book out.pdf --pages 250     # just make a synthetic PDF
@@ -91,6 +92,3 @@ Scenarios: `throughput`, `reindex` (idempotence), `concurrent` (parallel adds, p
 reindex of one book, duplicate-upload race), `failures` (scanned/encrypted/corrupt/
 duplicate/missing source), `large` (1200 pages), then `cascade` (delete everything).
 Uses its own DB `orange_rabbit_stress` and `stress/out/`; JSON report in `stress/out/`.
-
-Baseline (RTX 5060 Laptop, fp16, batch 16): ~16 pages/s, ~15 s per 250-page book
-(embedding ≈ 90%), 1200 pages in 73 s, 2.4 GB peak VRAM.

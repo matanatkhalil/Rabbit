@@ -11,8 +11,7 @@ def write(tmp_path, text):
 def test_project_config_loads():
     s = config.load(env={})
     assert s.port == 8000
-    assert s.embed_model == "Qwen/Qwen3-Embedding-0.6B"
-    assert s.embed_dim == 1024
+    assert s.embed_url == "https://agro-llm.services.ai.azure.com/openai/v1/embeddings"
     assert s.chat_top_k == 8
     assert s.data_dir == config.PROJECT_ROOT / "backend" / "data"
 

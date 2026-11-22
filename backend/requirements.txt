@@ -11,5 +11,5 @@ python-multipart>=0.0.9
 httpx>=0.27
 python-dotenv>=1.0
 pyyaml>=6.0
-# embedder (moves to its own branch/service later; see embedder/requirements.txt)
--r embedder/requirements.txt
+# tokenization for chunking (no embedding model weights)
+tiktoken>=0.8

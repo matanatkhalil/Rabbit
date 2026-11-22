@@ -1,15 +1,16 @@
-from transformers import AutoTokenizer
+import tiktoken
 
 
-class HFTokenizer:
-    """Tokenizer of the embedding model, loaded without the model weights."""
+class OpenAITokenizer:
+    """Token counts and character offsets for chunking text-embedding-3-large inputs."""
 
-    def __init__(self, model_name: str):
-        # the Rust backend directly: ~10x less overhead per call than the transformers wrapper
-        self._tok = AutoTokenizer.from_pretrained(model_name).backend_tokenizer
+    def __init__(self):
+        self._encoding = tiktoken.get_encoding("cl100k_base")
 
     def count(self, text: str) -> int:
-        return len(self._tok.encode(text, add_special_tokens=False).ids)
+        return len(self._encoding.encode_ordinary(text))
 
     def offsets(self, text: str) -> list[tuple[int, int]]:
-        return list(self._tok.encode(text, add_special_tokens=False).offsets)
+        _, starts = self._encoding.decode_with_offsets(self._encoding.encode_ordinary(text))
+        # Several tokens may share a start when their bytes overlap a Unicode character.
+        return [(start, max(start + 1, end)) for start, end in zip(starts, starts[1:] + [len(text)])]

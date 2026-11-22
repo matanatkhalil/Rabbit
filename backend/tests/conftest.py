@@ -1,5 +1,8 @@
 import os
+import re
+from zlib import crc32
 
+import numpy as np
 import pytest
 
 from embedder import get_tokenizer
@@ -12,6 +15,30 @@ TEST_DB_URL = os.environ.get(
 @pytest.fixture(scope="session")
 def tok():
     return get_tokenizer()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def fake_embeddings(request):
+    """DB integration tests use deterministic word vectors instead of calling Azure."""
+    if request.node.get_closest_marker("integration") is None:
+        yield
+        return
+
+    from embedder.azure import AzureEmbedder
+
+    def embed(self, texts):
+        vectors = np.zeros((len(texts), self.dim), dtype=np.float32)
+        for v, text in zip(vectors, texts):
+            for word in set(re.findall(r"\w+", text.lower())):
+                v[crc32(word.encode()) % self.dim] = 1.0
+            if not v.any():
+                v[0] = 1.0
+            v /= np.linalg.norm(v)
+        return vectors
+
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(AzureEmbedder, "_embed", embed)
+        yield
 
 
 @pytest.fixture(scope="session")

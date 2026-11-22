@@ -6,7 +6,6 @@
 import logging
 import shutil
 import tempfile
-import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Literal
@@ -20,7 +19,6 @@ from pydantic import BaseModel
 import config
 import ingest
 from chat import AnswerFailedError, BookNotReadyError, ChatUnavailableError, answer_question, chat_available
-from embedder import get_embedder
 from ingest import BookNotFoundError, DuplicateBookError, NotPdfError
 from ingest.library import COVER_NAME
 
@@ -61,7 +59,6 @@ def create_app(
     db_url: str | None = None,
     books_dir: Path | None = None,
     dist_dir: Path | None = DIST_DIR,
-    warm_up: bool = True,
     settings: config.Settings = config.SETTINGS,
 ) -> FastAPI:
     bus = EventBus()
@@ -74,8 +71,6 @@ def create_app(
         for b in ingest.list_books(db_url=db_url):
             if b["status"] == "indexing":  # interrupted by a restart
                 jobs.submit(b["id"])
-        if warm_up:  # load the model now, not inside the first book's "chunking" stage
-            threading.Thread(target=get_embedder, name="embedder-warm-up", daemon=True).start()
         yield
         jobs.stop()
 

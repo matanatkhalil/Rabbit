@@ -1,6 +1,6 @@
 """Background (re)indexing: one worker thread, so add_book never blocks a request.
 
-One worker is enough: the embedder serialises GPU work behind a lock anyway.
+One worker processes queued book indexing jobs in order.
 """
 import logging
 import queue

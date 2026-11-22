@@ -22,7 +22,7 @@ if [[ ! -x "$PY" ]]; then
   uv venv "$VENV"
 fi
 stamp="$VENV/.orange-reader-requirements"
-want="$(cat backend/requirements.txt backend/embedder/requirements.txt | sha256sum | cut -d' ' -f1)"
+want="$(sha256sum backend/requirements.txt | cut -d' ' -f1)"
 if [[ "$(cat "$stamp" 2>/dev/null)" != "$want" ]]; then
   if command -v uv >/dev/null; then
     uv pip install --python "$PY" -r backend/requirements.txt

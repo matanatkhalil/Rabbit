@@ -133,7 +133,7 @@ def delete_book(book_id: UUID, *, db_url: str | None = None, books_dir: Path | N
 
 _BOOK_COLUMNS = (
     "b.id, b.title, b.author, b.status, b.page_count, b.error, b.file_path, b.file_name, b.file_size,"
-    " b.last_page, b.last_opened_at, b.created_at,"
+    " b.last_page, b.last_opened_at, b.created_at, b.embed_model, b.embed_dim,"
     " (SELECT count(*) FROM chunks c WHERE c.book_id = b.id) AS chunks"
 )
 _ORDER = {

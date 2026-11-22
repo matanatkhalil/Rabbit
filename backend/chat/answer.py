@@ -11,7 +11,7 @@ from uuid import UUID
 import httpx
 
 import config
-from embedder import Embedder
+from embedder import Embedder, get_embedder
 from ingest import get_book
 
 from .locate import Highlight, PageWords, locate
@@ -43,7 +43,7 @@ class Answer:
 
 
 class ChatUnavailableError(Exception):
-    """The LLM API key or base URL is missing."""
+    """Chat or embeddings are not configured."""
 
 
 class BookNotReadyError(Exception):
@@ -55,7 +55,7 @@ class AnswerFailedError(Exception):
 
 
 def chat_available(settings: config.Settings = config.SETTINGS) -> bool:
-    return bool(settings.llm_api_key and settings.llm_base_url)
+    return bool(settings.llm_api_key and settings.llm_base_url and settings.embed_api_key and settings.embed_url)
 
 
 def build_messages(question: str, excerpts: list[Excerpt]) -> list[dict]:
@@ -113,10 +113,11 @@ def answer_question(
     if not chat_available(settings):
         raise ChatUnavailableError()
     book = get_book(book_id, db_url=db_url)
-    if book["status"] != "ready":
+    emb = embedder or get_embedder(settings)
+    if book["status"] != "ready" or (book["embed_model"], book["embed_dim"]) != (emb.model_name, emb.dim):
         raise BookNotReadyError()
-    excerpts = search_chunks(book_id, question, settings.chat_top_k, embedder=embedder, db_url=db_url)
     try:
+        excerpts = search_chunks(book_id, question, settings.chat_top_k, embedder=emb, db_url=db_url)
         answer = (_post_completion(build_messages(question, excerpts), settings) or "").strip()
     except Exception as e:
         log.warning("LLM call failed for book %s: %s", book_id, e)

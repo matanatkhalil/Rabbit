@@ -18,7 +18,7 @@ class Embedder(Protocol):
     dim: int
 
     def embed_documents(self, texts: list[str]) -> np.ndarray:
-        """L2-normalised float32 vectors, shape (len(texts), dim). No instruction prefix."""
+        """Document embeddings as float32 vectors of shape (len(texts), dim)."""
 
     def embed_queries(self, texts: list[str]) -> np.ndarray:
-        """L2-normalised float32 vectors with the model's query instruction prefix."""
+        """Query embeddings in the same vector space as the documents."""

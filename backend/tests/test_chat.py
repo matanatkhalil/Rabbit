@@ -1,4 +1,4 @@
-"""Questions: top-k retrieval with the real embedder; the LLM call is always a stub."""
+"""Questions: top-k retrieval with deterministic embeddings and stub chat replies."""
 import dataclasses
 import uuid
 
@@ -32,7 +32,8 @@ FACT = (
 QUESTION = "What did the lighthouse keeper use to record the tide?"
 
 WITH_KEY = dataclasses.replace(
-    config.SETTINGS, llm_api_key="test-key", llm_base_url="https://example.test/openai/v1", chat_top_k=4
+    config.SETTINGS, llm_api_key="test-key", llm_base_url="https://example.test/openai/v1",
+    embed_api_key="test-embedding-key", chat_top_k=4,
 )
 
 
@@ -124,7 +125,7 @@ def test_not_ready_and_unavailable(db_url, tmp_path, stub_llm):
 
 
 def test_ask_endpoint(book, db_url, tmp_path, stub_llm):
-    app = create_app(db_url=db_url, books_dir=tmp_path, dist_dir=None, warm_up=False, settings=WITH_KEY)
+    app = create_app(db_url=db_url, books_dir=tmp_path, dist_dir=None, settings=WITH_KEY)
     with TestClient(app) as client:
         assert client.get("/api/chat/availability").json() == {"availability": "available"}
         r = client.post(f"/api/books/{book}/ask", json={"question": f"  {QUESTION}  "})
@@ -137,7 +138,7 @@ def test_ask_endpoint(book, db_url, tmp_path, stub_llm):
         assert stub_llm[0][1]["content"].endswith(f"Question: {QUESTION}")
 
     no_key = create_app(
-        db_url=db_url, books_dir=tmp_path, dist_dir=None, warm_up=False,
+        db_url=db_url, books_dir=tmp_path, dist_dir=None,
         settings=dataclasses.replace(WITH_KEY, llm_api_key=None),
     )
     with TestClient(no_key) as client:
@@ -152,7 +153,7 @@ def test_llm_failure_is_reported_not_raised(book, db_url, tmp_path, monkeypatch)
         raise TimeoutError("provider timed out")
 
     monkeypatch.setattr(chat.answer, "_post_completion", broken)
-    app = create_app(db_url=db_url, books_dir=tmp_path, dist_dir=None, warm_up=False, settings=WITH_KEY)
+    app = create_app(db_url=db_url, books_dir=tmp_path, dist_dir=None, settings=WITH_KEY)
     with TestClient(app) as client:
         r = client.post(f"/api/books/{book}/ask", json={"question": QUESTION})
         assert (r.status_code, r.json()) == (502, {"code": "failed", "message": "Couldn't get an answer. Try again."})
