@@ -5,7 +5,7 @@ questions answered from a book (top-k chunks + one LLM call). Each ingestion ste
 replaceable function in `ingest/`.
 
 ```
-config.py            settings from ../config.yaml, overridden by RABBIT_* env vars; secrets from ../../.env
+config.py            settings from ../config.yaml, overridden by RABBIT_* env vars; secrets from ../.env
 db.py                connections, schema apply, test/stress DB creation
 schema.sql           books + chunks tables (idempotent)
 embedder/            embedding boundary — standalone, moves to its own branch/service
@@ -39,7 +39,7 @@ The whole app starts with one command from the project root (`Rabbit/Rabbit/`):
 ./start.sh        # database, schema, deps, UI build, then http://127.0.0.1:8000
 ```
 
-Settings live in `../config.yaml`; the LLM key in `../../.env` (`OPENROUTER_API_KEY`; the LLM is OpenRouter, `openai/gpt-4o`).
+In the project root, settings live in `config.yaml`. To enable chat, copy `.env.example` to `.env` and set `AZURE_CHAT_API_KEY`. Chat uses the `DeepSeek-V4.1-Flash` deployment on `agro-llm.services.ai.azure.com` by default. Set `RABBIT_LLM_BASE_URL` or `RABBIT_LLM_MODEL` in `.env` to override the endpoint or deployment name.
 
 ## Questions
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Orange Reader: the one way to start the app.
 #   database (Docker) -> schema -> backend deps -> built UI -> API + UI on one port
-# Settings: config.yaml. Secrets: ../.env. Ctrl+C stops the app; the database keeps
+# Settings: config.yaml. Secrets: ./.env. Ctrl+C stops the app; the database keeps
 # running for fast restarts (`docker compose down` stops it).
 set -euo pipefail
 cd "$(dirname "$0")"

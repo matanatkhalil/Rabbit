@@ -1,4 +1,4 @@
-# Orange Reader settings. Secrets (API keys) stay in ../.env.
+# Orange Reader settings. Secrets (API keys) stay in ./.env.
 # Any value can be overridden by its RABBIT_* environment variable (see backend/config.py).
 
 server:
@@ -27,9 +27,9 @@ ingest:
 chat:
   top_k: 8                        # chunks sent to the LLM, closest first
   llm:
-    base_url: https://openrouter.ai/api/v1   # OpenAI-compatible /chat/completions
-    model: openai/gpt-4o
-    api_key_env: OPENROUTER_API_KEY   # name of the variable in ../.env that holds the key
+    base_url: https://agro-llm.services.ai.azure.com/openai/v1
+    model: DeepSeek-V4.1-Flash        # Azure deployment name; override with RABBIT_LLM_MODEL
+    api_key_env: AZURE_CHAT_API_KEY   # name of the variable in ./.env that holds the key
     temperature: 0.2
     max_tokens: 1024
     timeout_s: 60

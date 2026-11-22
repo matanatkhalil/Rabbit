@@ -43,7 +43,7 @@ class Answer:
 
 
 class ChatUnavailableError(Exception):
-    """No LLM API key is configured."""
+    """The LLM API key or base URL is missing."""
 
 
 class BookNotReadyError(Exception):
@@ -55,7 +55,7 @@ class AnswerFailedError(Exception):
 
 
 def chat_available(settings: config.Settings = config.SETTINGS) -> bool:
-    return bool(settings.llm_api_key)
+    return bool(settings.llm_api_key and settings.llm_base_url)
 
 
 def build_messages(question: str, excerpts: list[Excerpt]) -> list[dict]:

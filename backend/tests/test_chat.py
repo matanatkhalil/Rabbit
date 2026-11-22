@@ -31,7 +31,9 @@ FACT = (
 )
 QUESTION = "What did the lighthouse keeper use to record the tide?"
 
-WITH_KEY = dataclasses.replace(config.SETTINGS, llm_api_key="test-key", chat_top_k=4)
+WITH_KEY = dataclasses.replace(
+    config.SETTINGS, llm_api_key="test-key", llm_base_url="https://example.test/openai/v1", chat_top_k=4
+)
 
 
 @pytest.fixture(scope="module")
