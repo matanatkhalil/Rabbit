@@ -28,7 +28,7 @@ chat:
   top_k: 8                        # chunks sent to the LLM, closest first
   llm:
     base_url: https://agro-llm.services.ai.azure.com/openai/v1
-    model: DeepSeek-V4.1-Flash        # Azure deployment name; override with RABBIT_LLM_MODEL
+    model: DeepSeek-V4.1-Flash        # Azure deployment name
     api_key_env: AZURE_CHAT_API_KEY   # name of the variable in ./.env that holds the key
     temperature: 0.2
     max_tokens: 1024

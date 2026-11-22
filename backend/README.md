@@ -39,7 +39,7 @@ The whole app starts with one command from the project root (`Rabbit/Rabbit/`):
 ./start.sh        # database, schema, deps, UI build, then http://127.0.0.1:8000
 ```
 
-In the project root, settings live in `config.yaml`. To enable chat, copy `.env.example` to `.env` and set `AZURE_CHAT_API_KEY`. Chat uses the `DeepSeek-V4.1-Flash` deployment on `agro-llm.services.ai.azure.com` by default. Set `RABBIT_LLM_BASE_URL` or `RABBIT_LLM_MODEL` in `.env` to override the endpoint or deployment name.
+In the project root, settings live in `config.yaml`. To enable chat, copy `.env.example` to `.env` and set `AZURE_CHAT_API_KEY`. Chat uses the `DeepSeek-V4.1-Flash` deployment at the Azure endpoint already set in `.env.example`.
 
 ## Questions
 
